@@ -1,96 +1,112 @@
-import { useEffect, useState, useRef, useCallback } from "react";
-import ProductCard from "./cards"; // Assuming ProductCard is the correct import path
+import { useState, useEffect, useRef } from "react";
+import axios from "axios";
+import ProductCard from "./cards";
 
-// URL for the mock API
-// const API_URL = "https://jsonbin.io/quick-store/";
-const API_URL = "https://mocki.io/v1/6e85833f-b8b7-4a29-baa7-7b35f4fa063a";
-// const API_URL = "https://jsonplaceholder.typicode.com/todos";
-
-const Product = () => {
+const ProductListing = () => {
   const [products, setProducts] = useState([]);
-  const [visibleProducts, setVisibleProducts] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [renderedProducts, setRenderedProducts] = useState([]);
+  const [page, setPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState(null);
-  const [batchIndex, setBatchIndex] = useState(0);
-  const observer = useRef();
+  const batchSize = 48;
+  const renderBatchSize = 8;
 
-  // Fetch products from the API in batches of 48
-  const fetchProducts = useCallback(async () => {
+  const observerRef = useRef(null);
+
+  const API_URL = "https://mocki.io/v1/6e85833f-b8b7-4a29-baa7-7b35f4fa063a";
+
+  const fetchProducts = async () => {
+    if (isLoading || !hasMore) return;
+
+    setIsLoading(true);
+    setError(null);
+
     try {
-      setLoading(true);
-      setError(null);
-
-      const response = await fetch(API_URL);
-      if (!response.ok) throw new Error("Failed to fetch products");
-
-      const data = await response.json();
-
-      setProducts((prev) => [...prev, ...data]);
-      setBatchIndex((prev) => prev + 1);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const handleObserver = useCallback(
-    (entries) => {
-      const target = entries[0];
-      if (target.isIntersecting && !loading) {
-        const start = visibleProducts.length;
-        const end = start + 8;
-
-        if (start < products.length) {
-          setVisibleProducts((prev) => [
-            ...prev,
-            ...products.slice(start, end),
-          ]);
-        } else if (products.length >= 48 * batchIndex) {
-          fetchProducts();
-        }
+      const response = await axios.get(API_URL, {
+        params: { limit: batchSize, page },
+      });
+      console.log(response);
+      const newProducts = response.data || [];
+      if (newProducts.length === 0) {
+        setHasMore(false);
+      } else {
+        setProducts((prev) => [...prev, ...newProducts]);
+        setRenderedProducts((prev) => [
+          ...prev,
+          ...newProducts.slice(0, renderBatchSize),
+        ]);
+        setPage((prev) => prev + 1);
       }
-    },
-    [loading, products, visibleProducts, fetchProducts, batchIndex]
-  );
+    } catch (err) {
+      setError("Failed to load products. Please try again.");
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadMoreProducts = () => {
+    if (renderedProducts.length < products.length) {
+      const nextBatch = products.slice(
+        renderedProducts.length,
+        renderedProducts.length + renderBatchSize
+      );
+      setRenderedProducts((prev) => [...prev, ...nextBatch]);
+    } else if (!isLoading && hasMore) {
+      fetchProducts();
+    }
+  };
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const target = entries[0];
+        if (target.isIntersecting) {
+          loadMoreProducts();
+        }
+      },
+      { threshold: 1.0 }
+    );
+
+    if (observerRef.current) observer.observe(observerRef.current);
+
+    return () => {
+      if (observerRef.current) observer.unobserve(observerRef.current);
+    };
+  }, [products, renderedProducts, hasMore]);
 
   useEffect(() => {
     fetchProducts();
-  }, [fetchProducts]);
-  useEffect(() => {
-    if (observer.current) observer.current.disconnect();
-
-    observer.current = new IntersectionObserver(handleObserver);
-    const anchorElement = document.getElementById("scroll-anchor");
-
-    if (anchorElement) {
-      observer.current.observe(anchorElement);
-    }
-
-    return () => {
-      if (observer.current) observer.current.disconnect();
-    };
-  }, [handleObserver]);
+  }, []);
 
   return (
     <div>
-      <h1>Product List</h1>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: "16px",
-        }}
-      >
-        {visibleProducts.map((product, index) => (
-          <ProductCard key={product.id || index} product={product} />
+      <h1>Product Listing</h1>
+
+      {error && <p className="error">{error}</p>}
+
+      <div className="product-grid">
+        {renderedProducts.map((product, index) => (
+          <div key={index} className="product-card">
+            <ProductCard product={product} />
+            {/* <img
+              src={product.image} // Adjust based on API data structure
+              alt={product.name}
+              loading="lazy"
+            />
+            <h3>{product.name}</h3>
+            <p>{product.description}</p> */}
+          </div>
         ))}
       </div>
-      {error && <div style={{ color: "red" }}>Error: {error}</div>}
-      {loading && <div>Loading...</div>}
-      <div id="scroll-anchor" style={{ height: "1px" }}></div>
+
+      {isLoading && <p>Loading...</p>}
+      {!hasMore && <p>No more products to load.</p>}
+
+      <div ref={observerRef} style={{ height: "1px" }}></div>
     </div>
   );
 };
 
-export default Product;
+export default ProductListing;

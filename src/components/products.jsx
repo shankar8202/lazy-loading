@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import ProductCard from "./cards";
+import SkeletonCard from "./skeleton";
 
 const ProductListing = () => {
   const [products, setProducts] = useState([]);
@@ -86,17 +87,19 @@ const ProductListing = () => {
 
       {error && <p className="error">{error}</p>}
 
-      <div className="product-grid">
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: "16px",
+        }}
+      >
+        {isLoading && Array.from({ length: renderBatchSize }).map((_, index) => (
+          <SkeletonCard key={index} />
+        ))}
         {renderedProducts.map((product, index) => (
-          <div key={index} className="product-card">
+          <div key={index}>
             <ProductCard product={product} />
-            {/* <img
-              src={product.image} // Adjust based on API data structure
-              alt={product.name}
-              loading="lazy"
-            />
-            <h3>{product.name}</h3>
-            <p>{product.description}</p> */}
           </div>
         ))}
       </div>

@@ -1,17 +1,11 @@
-import React from "react";
-const Skeleton = ({ style, item }) => {
-  const RenderElements = Array.from({ length: item });
+const SkeletonCard = () => {
   return (
-    <>
-      {RenderElements.map((element, index) => {
-        return (
-          <div
-            key={index}
-            className={`bg-slate-300 animate-pulse-fast ${style}`}
-          ></div>
-        );
-      })}
-    </>
+    <div style={{ border: "1px solid #ddd", padding: "8px", borderRadius: "4px" }}>
+      <div style={{ width: "100%", height: "150px", backgroundColor: "#ccc" }}></div>
+      <h3 style={{ backgroundColor: "#ccc", height: "20px", width: "80%", margin: "10px 0" }}></h3>
+      <p style={{ backgroundColor: "#ccc", height: "15px", width: "50%" }}></p>
+    </div>
   );
 };
-export default Skeleton;
+
+export default SkeletonCard;
